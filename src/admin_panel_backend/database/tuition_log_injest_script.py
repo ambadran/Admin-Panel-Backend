@@ -28,6 +28,7 @@ date,start_time,end_time,subject,attendees,cost_per_hour,lesson_index
 
 Place this tuition_logs.csv file in the root directory of your EfficientTutor-backend project.
 '''
+#TODO: must abdullah, jacob: logging this lesson twice to log into the two parents
 import os
 import csv
 import psycopg2
