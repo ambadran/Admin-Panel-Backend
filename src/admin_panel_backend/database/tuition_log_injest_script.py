@@ -1,3 +1,33 @@
+'''
+How to Run the Script
+This is the most important step. In your Excel file, make sure your columns have the following headers (exactly) and save it as a file named tuition_logs.csv.
+
+Required Columns:
+
+    date (in YYYY-MM-DD format, e.g., 2025-09-08)
+
+    start_time (in 24-hour HH:MM format, e.g., 17:00)
+
+    end_time (in 24-hour HH:MM format, e.g., 18:30)
+
+    subject (must exactly match one of your database ENUMs: 'Math', 'Physics', etc.)
+
+    attendees (A comma-separated list of student first names, e.g., John or John,Jane)
+
+    cost_per_hour (A number, e.g., 50 or 50.00)
+
+    lesson_index (Optional: The lesson number, e.g., 1)
+
+Example tuition_logs.csv file:
+Code snippet
+
+date,start_time,end_time,subject,attendees,cost_per_hour,lesson_index
+2025-09-04,10:00,11:30,Math,"Mila",60.00,1
+2025-09-01,19:00,20:00,Physics,"Mila,Omran",60.00,1
+2025-09-02,17:00,18:00,Chemistry,"Abdullah",55.00,1
+
+Place this tuition_logs.csv file in the root directory of your EfficientTutor-backend project.
+'''
 import os
 import csv
 import psycopg2
@@ -10,6 +40,11 @@ load_dotenv()
 DATABASE_URL = os.environ.get('DATABASE_URL')
 # The name of your CSV file
 CSV_FILE_PATH = 'tuition_logs.csv'
+
+def get_db_log_count(cur):
+    """Gets the current number of rows in the tuition_logs table."""
+    cur.execute("SELECT COUNT(*) AS count FROM tuition_logs;")
+    return cur.fetchone()['count']
 
 def get_student_parent_map(cur):
     """
@@ -35,8 +70,22 @@ def main():
         return
 
     try:
+        # --- Confirmation Step ---
+        print("!!! WARNING: This script will completely erase all data in the 'tuition_logs' table.")
+        confirm = input("Are you sure you want to continue? (yes/no): ")
+        if confirm.lower() != 'yes':
+            print("Operation cancelled by user.")
+            return
+
         conn = psycopg2.connect(DATABASE_URL)
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
+
+            # Deleting all tuition logs
+            print("\nErasing all existing logs from the database...")
+            cur.execute("DELETE FROM tuition_logs;")
+            print("Table 'tuition_logs' cleared.")
+
+            # reuploading the csv
             student_parent_map = get_student_parent_map(cur)
             
             print(f"\nReading data from '{CSV_FILE_PATH}'...")
@@ -45,7 +94,10 @@ def main():
                 
                 for row in reader:
                     try:
-                        attendee_names = [name.strip() for name in row['attendees'].split(',')]
+                        # THE FIX: Sanitize each name to remove whitespace AND curly quotes.
+                        attendee_names = [name.strip().strip('“”') for name in row['attendees'].split(',')]
+                        
+                        print(attendee_names)
                         
                         # Find the parent ID. We assume all students in a group have the same parent.
                         first_student_name = attendee_names[0]
@@ -97,14 +149,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-```
 
----
-### ## Step 3: How to Run the Script
-
-1.  **Save the Files:** Make sure your `tuition_logs.csv` and the new `ingest_logs.py` are both in the root directory of your `EfficientTutor-backend` project.
-2.  **Install Dependencies:** Your `requirements.txt` should already contain `psycopg2-binary` and `python-dotenv`. If not, run `pip install psycopg2-binary python-dotenv`.
-3.  **Run the Script:** Open your terminal in the project root and execute the script:
-    ```bash
-    python ingest_logs.py
-    
